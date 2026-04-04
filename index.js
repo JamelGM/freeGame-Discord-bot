@@ -220,8 +220,7 @@ async function fetchEpicDeals() {
 
     for (const game of elements) {
 
-        console.log(`🎮 Epic [${game.title}] categories:`, JSON.stringify(game.categories));
-        console.log(`🎮 Epic [${game.title}] tags:`, JSON.stringify(game.tags));
+        console.log(`🆕 [epic_${game.id}] → evaluando ${game.title}...`);
 
       const promotions = game.promotions?.promotionalOffers?.[0]?.promotionalOffers || [];
       const upcomingPromos = game.promotions?.upcomingPromotionalOffers?.[0]?.promotionalOffers || [];
