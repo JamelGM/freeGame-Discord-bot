@@ -266,6 +266,8 @@ async function fetchEpicDeals() {
         ? `https://store.epicgames.com/p/${game.catalogNs.mappings[0].pageSlug}`
         : "https://store.epicgames.com/free-games";
 
+        console.log(`🔗 Epic [${game.title}] productSlug:`, game.productSlug, `urlSlug:`, game.urlSlug, `mappings:`, JSON.stringify(game.catalogNs?.mappings));
+
       deals.push({
         appId,
         name: game.title,
