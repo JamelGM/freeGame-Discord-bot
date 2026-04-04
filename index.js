@@ -231,6 +231,14 @@ function buildEmbed(game) {
 
   return embed;
 }
+// ─── HISTORIAL DE ANUNCIOS ─/TEST──────────────────────────────────────────────────────
+function wasRecentlyAnnounced(appId) {
+  const entry = announced[appId];
+  console.log(`Verificando ${appId}: entry=${entry}`);
+  if (!entry) return false;
+  const daysSince = (Date.now() - entry) / (1000 * 60 * 60 * 24);
+  return daysSince < REANNOUNCE_DAYS;
+}
 
 // ─── LÓGICA PRINCIPAL ──────────────────────────────────────────────────────
 
