@@ -1,0 +1,2 @@
+# freeGame-Discord-bot
+botConfig
