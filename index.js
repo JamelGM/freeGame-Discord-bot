@@ -89,13 +89,41 @@ async function getAppDetails(appId) {
           details.price_overview.discount_end_date = storeData.discount_end_date;
         }
       } catch {
-        // Si falla ignoramos, la fecha quedará como No especificada
+        // Si falla ignoramos, la fecha quedara como No especificada
       }
     }
     
     return details;
   } catch {
     return null;
+  }
+}
+async function getDiscountEndDate(appId) {
+  try {
+    const url = `https://store.steampowered.com/app/${appId}/`;
+    const res = await fetch(url, {
+      headers: {
+        "Accept-Language": "en-US",
+        "Cookie": "birthtime=0; lastagecheckage=1-0-1990"
+      }
+    });
+    const html = await res.text();
+    
+    // Steam muestra la fecha en el HTML como "Offer ends 12 Apr @ 10:00am"
+    const match = html.match(/Offer ends ([^<"]+)/i);
+    if (match) return match[1].trim();
+    
+    // También puede aparecer como timestamp en el JS
+    const tsMatch = html.match(/discount_end_date["']?\s*:\s*(\d+)/);
+    if (tsMatch) {
+      return new Date(parseInt(tsMatch[1]) * 1000).toLocaleDateString("es-CR", {
+        day: "2-digit", month: "long", year: "numeric"
+      });
+    }
+    
+    return "No especificada";
+  } catch {
+    return "No especificada";
   }
 }
 
@@ -146,10 +174,8 @@ async function fetchSteamDeals() {
     if (discount < CONFIG.MIN_DISCOUNT) continue;
 
     const endDate = priceInfo.discount_end_date
-      ? new Date(priceInfo.discount_end_date * 1000).toLocaleDateString("es-CR", {
-          day: "2-digit", month: "long", year: "numeric",
-        })
-      : "No especificada";
+      ? new Date(priceInfo.discount_end_date * 1000).toLocaleDateString("es-CR", {day: "2-digit", month: "long", year: "numeric"})
+      : await getDiscountEndDate(appId);
 
     deals.push({
       appId,

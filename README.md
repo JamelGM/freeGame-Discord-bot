@@ -70,6 +70,7 @@ Cada mensaje en Discord incluye:
 
 Para que corra constantemente podés usar:
 
+(recomendado, recuerda la DB(volume))
 - **Railway.app** (gratis, fácil) — sube los archivos y conecta con GitHub
 - **Render.com** — similar, gratis con limitaciones
 - **Un VPS** (DigitalOcean, Linode) — más control
