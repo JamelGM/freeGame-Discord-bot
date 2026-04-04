@@ -199,6 +199,10 @@ async function fetchEpicDeals() {
     const elements = data?.data?.Catalog?.searchStore?.elements || [];
 
     for (const game of elements) {
+
+        console.log(`🎮 Epic [${game.title}] categories:`, JSON.stringify(game.categories));
+        console.log(`🎮 Epic [${game.title}] tags:`, JSON.stringify(game.tags));
+
       const promotions = game.promotions?.promotionalOffers?.[0]?.promotionalOffers || [];
       const upcomingPromos = game.promotions?.upcomingPromotionalOffers?.[0]?.promotionalOffers || [];
 
@@ -236,10 +240,6 @@ async function fetchEpicDeals() {
       const storeUrl = game.productSlug
         ? `https://store.epicgames.com/p/${game.productSlug}`
         : "https://store.epicgames.com/free-games";
-
-        
-        console.log(`🎮 Epic [${game.title}] categories:`, JSON.stringify(game.categories));
-        console.log(`🎮 Epic [${game.title}] tags:`, JSON.stringify(game.tags));
 
       deals.push({
         appId,
