@@ -21,30 +21,42 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // ─── PERSISTENCIA ──────────────────────────────────────────────────────────
 const ANNOUNCED_FILE = path.join("/app/data", "announced.json");
+const REANNOUNCE_DAYS = 30; // días antes de permitir re-anunciar el mismo juego
 
 function loadAnnounced() {
   try {
     if (fs.existsSync(ANNOUNCED_FILE)) {
-      const data = JSON.parse(fs.readFileSync(ANNOUNCED_FILE, "utf8"));
-      return new Set(data);
+      return JSON.parse(fs.readFileSync(ANNOUNCED_FILE, "utf8"));
     }
   } catch (err) {
     console.error("Error cargando announced.json:", err.message);
   }
-  return new Set();
+  return {};
 }
 
-function saveAnnounced(set) {
+function saveAnnounced(obj) {
   try {
-    fs.writeFileSync(ANNOUNCED_FILE, JSON.stringify([...set]), "utf8");
+    fs.writeFileSync(ANNOUNCED_FILE, JSON.stringify(obj), "utf8");
   } catch (err) {
     console.error("Error guardando announced.json:", err.message);
   }
 }
 
-// Guardamos IDs ya anunciados para no repetir (persiste entre reinicios)
+function wasRecentlyAnnounced(appId) {
+  const entry = announced[appId];
+  if (!entry) return false;
+  const daysSince = (Date.now() - entry) / (1000 * 60 * 60 * 24);
+  return daysSince < REANNOUNCE_DAYS;
+}
+
+function markAnnounced(appId) {
+  announced[appId] = Date.now();
+  saveAnnounced(announced);
+}
+
+// Cargamos el historial (objeto { appId: timestamp })
 const announced = loadAnnounced();
-console.log(`📂 Juegos ya anunciados cargados: ${announced.size}`);
+console.log(`📂 Juegos en historial: ${Object.keys(announced).length}`);
 
 // ─── STEAM API ─────────────────────────────────────────────────────────────
 
