@@ -238,4 +238,10 @@ client.once("clientReady", () => {
   cron.schedule(CONFIG.CHECK_INTERVAL, checkAndAnnounce);
 });
 
+console.log(`🔑 Token cargado: ${CONFIG.DISCORD_TOKEN ? "SÍ" : "NO"}`);
+console.log(`📡 Canal ID: ${CONFIG.CHANNEL_ID}`);
+
+client.on("error", (err) => console.error("❌ Error del cliente:", err));
+client.on("warn", (msg) => console.warn("⚠️ Advertencia:", msg));
+
 client.login(CONFIG.DISCORD_TOKEN);
