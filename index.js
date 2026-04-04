@@ -244,4 +244,12 @@ console.log(`📡 Canal ID: ${CONFIG.CHANNEL_ID}`);
 client.on("error", (err) => console.error("❌ Error del cliente:", err));
 client.on("warn", (msg) => console.warn("⚠️ Advertencia:", msg));
 
+console.log("🔄 Intentando conectar a Discord...");
+client.login(CONFIG.DISCORD_TOKEN).then(() => {
+  console.log("✅ Login exitoso");
+}).catch((err) => {
+  console.error("❌ Error en login:", err.message);
+  process.exit(1);
+});
+
 client.login(CONFIG.DISCORD_TOKEN);
