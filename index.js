@@ -20,7 +20,7 @@ const CONFIG = {
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // ─── PERSISTENCIA ──────────────────────────────────────────────────────────
-const ANNOUNCED_FILE = path.join(__dirname, "announced.json");
+const ANNOUNCED_FILE = path.join("/app/data", "announced.json");
 
 function loadAnnounced() {
   try {
