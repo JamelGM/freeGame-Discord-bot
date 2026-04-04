@@ -7,7 +7,7 @@ const cron = require("node-cron");
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────
 const CONFIG = {
-  DISCORD_TOKEN: "MTQ4OTg4OTExNjA2MDM4OTM5OA.GPkdGq.uXeo5rOk-BREtGS8V63Iyf13zDWVHacUQrXHCk", // tu token de bot aquí
+ DISCORD_TOKEN: process.env.DISCORD_TOKEN, // tu token de bot aquí
   CHANNEL_ID: "1472754128013754490",   // ID del canal donde se anunciarán las ofertas
   MIN_DISCOUNT: 90,           // anunciar si descuento >= este valor (usa 100 para solo gratis)
   CHECK_INTERVAL: "0 */12 * * *", // cada hora (cron syntax)
