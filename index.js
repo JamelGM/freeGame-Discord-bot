@@ -98,6 +98,7 @@ async function getAppDetails(appId) {
     return null;
   }
 }
+
 async function getDiscountEndDate(appId) {
   try {
     const url = `https://store.steampowered.com/app/${appId}/`;
@@ -109,17 +110,21 @@ async function getDiscountEndDate(appId) {
     });
     const html = await res.text();
     
-    // Steam muestra la fecha en el HTML como "Offer ends 12 Apr @ 10:00am"
-    const match = html.match(/Offer ends ([^<"]+)/i);
-    if (match) return match[1].trim();
-    
-    // También puede aparecer como timestamp en el JS
-    const tsMatch = html.match(/discount_end_date["']?\s*:\s*(\d+)/);
+    // Buscar timestamp en el JS de la página (más confiable)
+    const tsMatch = html.match(/discount_end_date["']?\s*:\s*(\d+)/) ||
+                    html.match(/sale_end_time["']?\s*:\s*(\d+)/) ||
+                    html.match(/free_weekend_expires["']?\s*:\s*(\d+)/);
     if (tsMatch) {
       return new Date(parseInt(tsMatch[1]) * 1000).toLocaleDateString("es-CR", {
         day: "2-digit", month: "long", year: "numeric"
       });
     }
+
+    // Buscar texto visible en el HTML
+    const match = html.match(/Offer ends ([^<"]+)/i) ||
+                  html.match(/sale ends ([^<"]+)/i) ||
+                  html.match(/free to keep when you get it before ([^<"]+)/i);
+    if (match) return match[1].trim();
     
     return "No especificada";
   } catch {
