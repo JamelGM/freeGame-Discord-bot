@@ -245,6 +245,11 @@ client.on("error", (err) => console.error("❌ Error del cliente:", err));
 client.on("warn", (msg) => console.warn("⚠️ Advertencia:", msg));
 
 console.log("🔄 Intentando conectar a Discord...");
+// Test de conectividad básica
+fetch("https://discord.com/api/v10/gateway")
+  .then(r => r.json())
+  .then(d => console.log("🌐 Conectividad a Discord OK:", d.url))
+  .catch(e => console.error("🌐 Sin acceso a Discord:", e.message));
 client.login(CONFIG.DISCORD_TOKEN).then(() => {
   console.log("✅ Login exitoso");
 }).catch((err) => {
