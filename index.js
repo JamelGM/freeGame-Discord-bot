@@ -124,7 +124,7 @@ async function getDiscountEndDate(appId) {
     const match = html.match(/Offer ends ([^<"]+)/i) ||
                   html.match(/sale ends ([^<"]+)/i) ||
                   html.match(/free to keep when you get it before ([^<"]+)/i);
-    if (match) return match[1].trim();
+    if (match) return match[1].replace(/@.*$/i, "").replace(/\.\s*Some limitations apply\.?/i, "").trim();
     
     return "No especificada";
   } catch {
