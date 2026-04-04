@@ -13,7 +13,7 @@ const CONFIG = {
   CHANNEL_ID: process.env.CHANNEL_ID || "YOUR_CHANNEL_ID_HERE",
   MIN_DISCOUNT: 90,           // anunciar si descuento >= este valor (usa 100 para solo gratis)
   CHECK_INTERVAL: "0 */12 * * *", // cada 12 horas
-  MAX_GAMES_PER_CHECK: 10,    // máximo de juegos a anunciar por ciclo
+  MAX_GAMES_PER_CHECK: 30,    // máximo de juegos a anunciar por ciclo
 };
 // ───────────────────────────────────────────────────────────────────────────
 
