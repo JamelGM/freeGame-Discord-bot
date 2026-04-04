@@ -14,8 +14,8 @@ const CONFIG = {
   ROLE_ID: process.env.ROLE_ID ||"YOUR_ROLE_ID_HERE",
   MIN_DISCOUNT: 90,
   CHECK_INTERVAL: "0 */24 * * *",
-  MAX_GAMES_PER_CHECK: 30,
-  REANNOUNCE_DAYS: 30,
+  MAX_GAMES_PER_CHECK: 50,
+  REANNOUNCE_DAYS: 15,
 };
 // ───────────────────────────────────────────────────────────────────────────
 
