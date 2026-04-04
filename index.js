@@ -76,7 +76,24 @@ async function getAppDetails(appId) {
     const res = await fetch(url);
     const data = await res.json();
     if (!data[appId]?.success) return null;
-    return data[appId].data;
+    
+    const details = data[appId].data;
+    
+    // Si no tiene fecha, intentamos obtenerla del storefront
+    if (!details.price_overview?.discount_end_date) {
+      try {
+        const storeUrl = `https://store.steampowered.com/storefront/apphoverpublic/${appId}?l=english`;
+        const storeRes = await fetch(storeUrl);
+        const storeData = await storeRes.json();
+        if (storeData?.discount_end_date && details.price_overview) {
+          details.price_overview.discount_end_date = storeData.discount_end_date;
+        }
+      } catch {
+        // Si falla ignoramos, la fecha quedará como No especificada
+      }
+    }
+    
+    return details;
   } catch {
     return null;
   }
