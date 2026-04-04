@@ -305,8 +305,8 @@ function sleep(ms) {
 // ─── INICIO ────────────────────────────────────────────────────────────────
 
 client.once("clientReady", () => {
-  console.log(`✅ Bot conectado como ${client.user.tag}`);
-  console.log(`📡 Revisando cada hora (MIN_DISCOUNT = ${CONFIG.MIN_DISCOUNT}%)`);
+  console.log(` Bot conectado como ${client.user.tag}`);
+  console.log(` Revisando cada 12 horas (MIN_DISCOUNT = ${CONFIG.MIN_DISCOUNT}%)`);
 
   // Primera ejecución inmediata al arrancar
   checkAndAnnounce();
