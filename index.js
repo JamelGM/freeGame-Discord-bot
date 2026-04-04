@@ -4,21 +4,47 @@
 
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const cron = require("node-cron");
+const fs = require("fs");
+const path = require("path");
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────
 const CONFIG = {
- DISCORD_TOKEN: process.env.DISCORD_TOKEN, // tu token de bot aquí
-  CHANNEL_ID: "1472754128013754490",   // ID del canal donde se anunciarán las ofertas
+  DISCORD_TOKEN: process.env.DISCORD_TOKEN || "YOUR_BOT_TOKEN_HERE",
+  CHANNEL_ID: process.env.CHANNEL_ID || "YOUR_CHANNEL_ID_HERE",
   MIN_DISCOUNT: 90,           // anunciar si descuento >= este valor (usa 100 para solo gratis)
-  CHECK_INTERVAL: "0 */12 * * *", // cada hora (cron syntax)
-  MAX_GAMES_PER_CHECK: 30,    // máximo de juegos a anunciar por ciclo
+  CHECK_INTERVAL: "0 */12 * * *", // cada 12 horas
+  MAX_GAMES_PER_CHECK: 10,    // máximo de juegos a anunciar por ciclo
 };
 // ───────────────────────────────────────────────────────────────────────────
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Guardamos IDs ya anunciados para no repetir
-const announced = new Set();
+// ─── PERSISTENCIA ──────────────────────────────────────────────────────────
+const ANNOUNCED_FILE = path.join(__dirname, "announced.json");
+
+function loadAnnounced() {
+  try {
+    if (fs.existsSync(ANNOUNCED_FILE)) {
+      const data = JSON.parse(fs.readFileSync(ANNOUNCED_FILE, "utf8"));
+      return new Set(data);
+    }
+  } catch (err) {
+    console.error("Error cargando announced.json:", err.message);
+  }
+  return new Set();
+}
+
+function saveAnnounced(set) {
+  try {
+    fs.writeFileSync(ANNOUNCED_FILE, JSON.stringify([...set]), "utf8");
+  } catch (err) {
+    console.error("Error guardando announced.json:", err.message);
+  }
+}
+
+// Guardamos IDs ya anunciados para no repetir (persiste entre reinicios)
+const announced = loadAnnounced();
+console.log(`📂 Juegos ya anunciados cargados: ${announced.size}`);
 
 // ─── STEAM API ─────────────────────────────────────────────────────────────
 
@@ -158,32 +184,32 @@ function buildEmbed(game) {
     .setDescription(game.shortDesc)
     .addFields(
       {
-        name: "💰 Precio original: ",
+        name: "💰 Precio original",
         value: `$${game.originalPrice} USD`,
         inline: true,
       },
       {
-        name: "🏷️ Precio actual: ",
+        name: "🏷️ Precio actual",
         value: isFree ? "**GRATIS**" : `~~$${game.originalPrice}~~ → $${game.finalPrice} USD`,
         inline: true,
       },
       {
-        name: "📉 Descuento: ",
+        name: "📉 Descuento",
         value: `**${game.discount}%**`,
         inline: true,
       },
       {
-        name: "🎯 Plataforma: ",
+        name: "🎯 Plataforma",
         value: game.platform,
         inline: true,
       },
       {
-        name: "🎭 Géneros: ",
+        name: "🎭 Géneros",
         value: game.genres,
         inline: true,
       },
       {
-        name: "⏰ Oferta válida hasta: ",
+        name: "⏰ Oferta válida hasta",
         value: game.endDate,
         inline: true,
       }
@@ -223,6 +249,7 @@ async function checkAndAnnounce() {
       const embed = buildEmbed(game);
       await channel.send({ embeds: [embed] });
       announced.add(game.appId);
+      saveAnnounced(announced);
       console.log(`✓ Anunciado: ${game.name} (${game.discount}% off)`);
       await sleep(1000); // pausa entre mensajes
     } catch (err) {
