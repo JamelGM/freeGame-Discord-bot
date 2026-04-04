@@ -257,14 +257,10 @@ async function fetchEpicDeals() {
 
       const genres = await getGenresFromSteam(game.title);
 
-      const storeUrl = game.productSlug
-        ? `https://store.epicgames.com/p/${game.productSlug}`
-        : game.urlSlug
-
-        ? `https://store.epicgames.com/p/${game.urlSlug}`
-        : game.catalogNs?.mappings?.[0]?.pageSlug
-
+      const storeUrl = game.catalogNs?.mappings?.[0]?.pageSlug
         ? `https://store.epicgames.com/p/${game.catalogNs.mappings[0].pageSlug}`
+        : game.productSlug
+        ? `https://store.epicgames.com/p/${game.productSlug}`
         : "https://store.epicgames.com/free-games";
 
 
