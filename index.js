@@ -1,6 +1,6 @@
 // Steam Free / 90%+ deals bot for Discord
-// Requirements: npm install discord.js node-cron node-fetch
-// Node.js 18+ recommended (node-fetch built-in)
+// Requirements: npm install discord.js node-cron
+// Node.js 18+ recommended
 
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const cron = require("node-cron");
@@ -11,9 +11,10 @@ const path = require("path");
 const CONFIG = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN || "YOUR_BOT_TOKEN_HERE",
   CHANNEL_ID: process.env.CHANNEL_ID || "YOUR_CHANNEL_ID_HERE",
-  MIN_DISCOUNT: 90,           // anunciar si descuento >= este valor (usa 100 para solo gratis)
-  CHECK_INTERVAL: "0 */12 * * *", // cada 12 horas
-  MAX_GAMES_PER_CHECK: 30,    // máximo de juegos a anunciar por ciclo
+  MIN_DISCOUNT: 90,
+  CHECK_INTERVAL: "0 */12 * * *",
+  MAX_GAMES_PER_CHECK: 30,
+  REANNOUNCE_DAYS: 30,
 };
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,6 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // ─── PERSISTENCIA ──────────────────────────────────────────────────────────
 const ANNOUNCED_FILE = path.join("/app/data", "announced.json");
-const REANNOUNCE_DAYS = 30; // días antes de permitir re-anunciar el mismo juego
 
 function loadAnnounced() {
   try {
@@ -44,32 +44,37 @@ function saveAnnounced(obj) {
 
 function wasRecentlyAnnounced(appId) {
   const entry = announced[appId];
-  if (!entry) return false;
-  const daysSince = (Date.now() - entry) / (1000 * 60 * 60 * 24);
-  return daysSince < REANNOUNCE_DAYS;
+  if (!entry) {
+    console.log(`🆕 [${appId}] → nunca anunciado, evaluando...`);
+    return false;
+  }
+  const timestamp = entry.date || entry;
+  const name = entry.name || "?";
+  const daysSince = ((Date.now() - timestamp) / (1000 * 60 * 60 * 24)).toFixed(1);
+  const date = new Date(timestamp).toLocaleDateString("es-CR", { day: "2-digit", month: "long", year: "numeric" });
+  if (daysSince < CONFIG.REANNOUNCE_DAYS) {
+    console.log(`⏭️  [${appId}] ${name} → anunciado hace ${daysSince} días (${date}), saltando...`);
+    return true;
+  }
+  console.log(`♻️  [${appId}] ${name} → anunciado hace ${daysSince} días, elegible para re-anunciar`);
+  return false;
 }
 
-function markAnnounced(appId) {
-  announced[appId] = Date.now();
+function markAnnounced(appId, name = "") {
+  announced[appId] = { date: Date.now(), name };
   saveAnnounced(announced);
 }
 
-// Cargamos el historial (objeto { appId: timestamp })
 const announced = loadAnnounced();
 console.log(`📂 Juegos en historial: ${Object.keys(announced).length}`);
 
 // ─── STEAM API ─────────────────────────────────────────────────────────────
 
-/**
- * Obtiene detalles de un app de Steam
- * Retorna null si falla o no tiene precio
- */
 async function getAppDetails(appId) {
   try {
     const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=us&l=english`;
     const res = await fetch(url);
     const data = await res.json();
-
     if (!data[appId]?.success) return null;
     return data[appId].data;
   } catch {
@@ -77,33 +82,16 @@ async function getAppDetails(appId) {
   }
 }
 
-/**
- * Busca en la página de ofertas de Steam juegos con gran descuento
- * Usa el endpoint de búsqueda de ofertas ordenado por descuento
- */
 async function fetchSteamDeals() {
   const deals = [];
 
-  // Endpoint: ofertas de Steam (descuento máximo, juegos solamente)
   const url =
     "https://store.steampowered.com/search/results?" +
-    new URLSearchParams({
-      specials: 1,
-      sort_by: "Price_ASC",
-      maxprice: "free",   // incluye juegos con precio final = $0
-      json: 1,
-      count: 50,
-    });
+    new URLSearchParams({ specials: 1, sort_by: "Price_ASC", maxprice: "free", json: 1, count: 50 });
 
-  // También buscamos por descuento alto
   const url2 =
     "https://store.steampowered.com/search/results?" +
-    new URLSearchParams({
-      specials: 1,
-      sort_by: "Reviews_DESC",
-      json: 1,
-      count: 100,
-    });
+    new URLSearchParams({ specials: 1, sort_by: "Reviews_DESC", json: 1, count: 100 });
 
   const fetchJSON = async (u) => {
     try {
@@ -114,12 +102,8 @@ async function fetchSteamDeals() {
     }
   };
 
-  const [freeData, dealsData] = await Promise.all([
-    fetchJSON(url),
-    fetchJSON(url2),
-  ]);
+  const [freeData, dealsData] = await Promise.all([fetchJSON(url), fetchJSON(url2)]);
 
-  // Juntamos los IDs únicos de ambas búsquedas
   const appIds = new Set();
   for (const d of [freeData, dealsData]) {
     if (d?.items) {
@@ -130,36 +114,30 @@ async function fetchSteamDeals() {
     }
   }
 
-  // Verificamos cada juego con detalles reales
-  const checks = [...appIds].slice(0, 60); // limitamos peticiones
+  const checks = [...appIds].slice(0, 60);
   for (const appId of checks) {
-    if (wasRecentlyAnnounced(appId, details?.name)) continue;
+    if (wasRecentlyAnnounced(appId)) continue;
 
     const details = await getAppDetails(appId);
     if (!details) continue;
-
-    // Solo juegos (no DLC, ni apps, ni música)
     if (details.type !== "game") continue;
 
     const priceInfo = details.price_overview;
-    if (!priceInfo) continue; // juego base gratis (F2P sin precio)
+    if (!priceInfo) continue;
 
     const discount = priceInfo.discount_percent ?? 0;
     if (discount < CONFIG.MIN_DISCOUNT) continue;
 
-    const releaseDate = details.release_date;
     const endDate = priceInfo.discount_end_date
       ? new Date(priceInfo.discount_end_date * 1000).toLocaleDateString("es-CR", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
+          day: "2-digit", month: "long", year: "numeric",
         })
       : "No especificada";
 
     deals.push({
       appId,
       name: details.name,
-      originalPrice: (priceInfo.initial / 100).toFixed(2),   // en USD
+      originalPrice: (priceInfo.initial / 100).toFixed(2),
       finalPrice: (priceInfo.final / 100).toFixed(2),
       discount,
       genres: details.genres?.map((g) => g.description).join(", ") || "N/A",
@@ -167,11 +145,9 @@ async function fetchSteamDeals() {
       thumbnail: details.header_image,
       storeUrl: `https://store.steampowered.com/app/${appId}`,
       endDate,
-      releaseDate: releaseDate?.date || "N/A",
       shortDesc: details.short_description?.slice(0, 150) + "...",
     });
 
-    // Pequeña pausa para no saturar la API de Steam
     await sleep(300);
   }
 
@@ -182,9 +158,9 @@ async function fetchSteamDeals() {
 
 function buildEmbed(game) {
   const isFree = parseFloat(game.finalPrice) === 0;
-  const color = isFree ? 0x57f287 : 0xffa500; // verde = gratis, naranja = oferta
+  const color = isFree ? 0x57f287 : 0xffa500;
 
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setColor(color)
     .setTitle(
       isFree
@@ -195,57 +171,19 @@ function buildEmbed(game) {
     .setThumbnail(game.thumbnail)
     .setDescription(game.shortDesc)
     .addFields(
-      {
-        name: "💰 Precio original",
-        value: `$${game.originalPrice} USD`,
-        inline: true,
-      },
+      { name: "💰 Precio original", value: `$${game.originalPrice} USD`, inline: true },
       {
         name: "🏷️ Precio actual",
         value: isFree ? "**GRATIS**" : `~~$${game.originalPrice}~~ → $${game.finalPrice} USD`,
         inline: true,
       },
-      {
-        name: "📉 Descuento",
-        value: `**${game.discount}%**`,
-        inline: true,
-      },
-      {
-        name: "🎯 Plataforma",
-        value: game.platform,
-        inline: true,
-      },
-      {
-        name: "🎭 Géneros",
-        value: game.genres,
-        inline: true,
-      },
-      {
-        name: "⏰ Oferta válida hasta",
-        value: game.endDate,
-        inline: true,
-      }
+      { name: "📉 Descuento", value: `**${game.discount}%**`, inline: true },
+      { name: "🎯 Plataforma", value: game.platform, inline: true },
+      { name: "🎭 Géneros", value: game.genres, inline: true },
+      { name: "⏰ Oferta válida hasta", value: game.endDate, inline: true }
     )
     .setFooter({ text: "Steam Deals Bot • Reclamalo antes de que expire" })
     .setTimestamp();
-
-  return embed;
-}
-// ─── HISTORIAL DE ANUNCIOS ───────────────────────────────────────────────────────
-function wasRecentlyAnnounced(appId, name = "") {
-  const entry = announced[appId];
-  if (!entry) {
-    console.log(`🆕 [${appId}] ${name || "Juego nuevo"} → nunca anunciado, evaluando...`);
-    return false;
-  }
-  const daysSince = ((Date.now() - entry) / (1000 * 60 * 60 * 24)).toFixed(1);
-  const date = new Date(entry).toLocaleDateString("es-CR", { day: "2-digit", month: "long", year: "numeric" });
-  if (daysSince < REANNOUNCE_DAYS) {
-    console.log(`⏭️  [${appId}] ${name || "?"} → anunciado hace ${daysSince} días (${date}), saltando...`);
-    return true;
-  }
-  console.log(`♻️  [${appId}] ${name || "?"} → anunciado hace ${daysSince} días, elegible para re-anunciar`);
-  return false;
 }
 
 // ─── LÓGICA PRINCIPAL ──────────────────────────────────────────────────────
@@ -268,7 +206,7 @@ async function checkAndAnnounce() {
   }
 
   if (deals.length === 0) {
-    console.log("Sin nuevas ofertas >= " + CONFIG.MIN_DISCOUNT + "% en este ciclo.");
+    console.log(`Sin nuevas ofertas >= ${CONFIG.MIN_DISCOUNT}% en este ciclo.`);
     return;
   }
 
@@ -276,9 +214,9 @@ async function checkAndAnnounce() {
     try {
       const embed = buildEmbed(game);
       await channel.send({ embeds: [embed] });
-      markAnnounced(game.appId);
+      markAnnounced(game.appId, game.name);
       console.log(`✓ Anunciado: ${game.name} (${game.discount}% off)`);
-      await sleep(1000); // pausa entre mensajes
+      await sleep(1000);
     } catch (err) {
       console.error(`Error enviando embed para ${game.name}:`, err.message);
     }
@@ -295,12 +233,8 @@ function sleep(ms) {
 
 client.once("clientReady", () => {
   console.log(`✅ Bot conectado como ${client.user.tag}`);
-  console.log(`📡 Revisando cada hora (MIN_DISCOUNT = ${CONFIG.MIN_DISCOUNT}%)`);
-
-  // Primera ejecución inmediata al arrancar
+  console.log(`📡 Revisando cada 12 horas (MIN_DISCOUNT = ${CONFIG.MIN_DISCOUNT}%)`);
   checkAndAnnounce();
-
-  // Luego sigue el cron (cada hora por defecto)
   cron.schedule(CONFIG.CHECK_INTERVAL, checkAndAnnounce);
 });
 
