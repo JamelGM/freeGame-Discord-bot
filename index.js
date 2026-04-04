@@ -133,7 +133,7 @@ async function fetchSteamDeals() {
   // Verificamos cada juego con detalles reales
   const checks = [...appIds].slice(0, 60); // limitamos peticiones
   for (const appId of checks) {
-    if (wasRecentlyAnnounced(appId)) continue;
+    if (wasRecentlyAnnounced(appId, details?.name)) continue;
 
     const details = await getAppDetails(appId);
     if (!details) continue;
@@ -231,13 +231,21 @@ function buildEmbed(game) {
 
   return embed;
 }
-// ─── HISTORIAL DE ANUNCIOS ─/TEST──────────────────────────────────────────────────────
-function wasRecentlyAnnounced(appId) {
+// ─── HISTORIAL DE ANUNCIOS ───────────────────────────────────────────────────────
+function wasRecentlyAnnounced(appId, name = "") {
   const entry = announced[appId];
-  console.log(`Verificando ${appId}: entry=${entry}`);
-  if (!entry) return false;
-  const daysSince = (Date.now() - entry) / (1000 * 60 * 60 * 24);
-  return daysSince < REANNOUNCE_DAYS;
+  if (!entry) {
+    console.log(`🆕 [${appId}] ${name || "Juego nuevo"} → nunca anunciado, evaluando...`);
+    return false;
+  }
+  const daysSince = ((Date.now() - entry) / (1000 * 60 * 60 * 24)).toFixed(1);
+  const date = new Date(entry).toLocaleDateString("es-CR", { day: "2-digit", month: "long", year: "numeric" });
+  if (daysSince < REANNOUNCE_DAYS) {
+    console.log(`⏭️  [${appId}] ${name || "?"} → anunciado hace ${daysSince} días (${date}), saltando...`);
+    return true;
+  }
+  console.log(`♻️  [${appId}] ${name || "?"} → anunciado hace ${daysSince} días, elegible para re-anunciar`);
+  return false;
 }
 
 // ─── LÓGICA PRINCIPAL ──────────────────────────────────────────────────────
