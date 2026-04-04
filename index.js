@@ -231,7 +231,7 @@ async function fetchEpicDeals() {
         game.keyImages?.find((i) => i.type === "Thumbnail")?.url ||
         game.keyImages?.[0]?.url || "";
 
-      const genres = game.categories?.map((c) => c.path.split("/")?.[1]).filter(Boolean).join(", ") || "N/A";
+      const genres = game.tags?.map((t) => t.name).filter(Boolean).slice(0, 3).join(", ") || "N/A";
 
       const storeUrl = game.productSlug
         ? `https://store.epicgames.com/p/${game.productSlug}`
