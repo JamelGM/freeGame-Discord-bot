@@ -133,10 +133,10 @@ async function fetchSteamDeals() {
   // Verificamos cada juego con detalles reales
   const checks = [...appIds].slice(0, 60); // limitamos peticiones
   for (const appId of checks) {
-  if (wasRecentlyAnnounced(appId)) continue;
+    if (wasRecentlyAnnounced(appId, details?.name)) continue;
 
-  const details = await getAppDetails(appId);
-  if (!details) continue;
+    const details = await getAppDetails(appId);
+    if (!details) continue;
 
     // Solo juegos (no DLC, ni apps, ni música)
     if (details.type !== "game") continue;
