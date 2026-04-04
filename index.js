@@ -44,24 +44,13 @@ function saveAnnounced(obj) {
 
 function wasRecentlyAnnounced(appId) {
   const entry = announced[appId];
-  if (!entry) {
-    console.log(`🆕 [${appId}] → nunca anunciado, evaluando...`);
-    return false;
-  }
-  const timestamp = entry.date || entry; // compatibilidad con registros viejos
-  const name = entry.name || "?";
-  const daysSince = ((Date.now() - timestamp) / (1000 * 60 * 60 * 24)).toFixed(1);
-  const date = new Date(timestamp).toLocaleDateString("es-CR", { day: "2-digit", month: "long", year: "numeric" });
-  if (daysSince < REANNOUNCE_DAYS) {
-    console.log(`⏭️  [${appId}] ${name} → anunciado hace ${daysSince} días (${date}), saltando...`);
-    return true;
-  }
-
-  console.log(`♻️  [${appId}] ${name} → anunciado hace ${daysSince} días, elegible para re-anunciar`);
-  return false;
+  if (!entry) return false;
+  const daysSince = (Date.now() - entry) / (1000 * 60 * 60 * 24);
+  return daysSince < REANNOUNCE_DAYS;
 }
-function markAnnounced(appId, name = "") {
-  announced[appId] = { date: Date.now(), name };
+
+function markAnnounced(appId) {
+  announced[appId] = Date.now();
   saveAnnounced(announced);
 }
 
@@ -287,7 +276,7 @@ async function checkAndAnnounce() {
     try {
       const embed = buildEmbed(game);
       await channel.send({ embeds: [embed] });
-      markAnnounced(game.appId, game.name);
+      markAnnounced(game.appId);
       console.log(`✓ Anunciado: ${game.name} (${game.discount}% off)`);
       await sleep(1000); // pausa entre mensajes
     } catch (err) {
