@@ -260,8 +260,7 @@ async function checkAndAnnounce() {
     try {
       const embed = buildEmbed(game);
       await channel.send({ embeds: [embed] });
-      announced.add(game.appId);
-      saveAnnounced(announced);
+      markAnnounced(game.appId);
       console.log(`✓ Anunciado: ${game.name} (${game.discount}% off)`);
       await sleep(1000); // pausa entre mensajes
     } catch (err) {
