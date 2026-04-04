@@ -157,7 +157,7 @@ async function fetchSteamDeals() {
 // ─── DISCORD EMBED ─────────────────────────────────────────────────────────
 
 function buildEmbed(game) {
-  const isFree = parseFloat(game.finalPrice) === 0;
+  const isFree = parseFloat(game.finalPrice) === 0 || game.discount === 100;
   const color = isFree ? 0x57f287 : 0xffa500;
 
   return new EmbedBuilder()
@@ -256,11 +256,5 @@ client.login(CONFIG.DISCORD_TOKEN).then(() => {
   console.error("❌ Error en login:", err.message);
   process.exit(1);
 });
-
-const discount = priceInfo.discount_percent ?? 0;
-if (discount < CONFIG.MIN_DISCOUNT) continue;
-
-// Log temporal para debug
-console.log(`💰 [${appId}] discount:${discount}% initial:${priceInfo.initial} final:${priceInfo.final} final_formatted:${priceInfo.final_formatted}`);
 
 client.login(CONFIG.DISCORD_TOKEN);
