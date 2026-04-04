@@ -1,4 +1,4 @@
-// Steam Free / 90%+ deals bot for Discord
+// Free Games Bot para Discord — Steam + Epic Games
 // Requirements: npm install discord.js node-cron
 // Node.js 18+ recommended
 
@@ -11,6 +11,7 @@ const path = require("path");
 const CONFIG = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN || "YOUR_BOT_TOKEN_HERE",
   CHANNEL_ID: process.env.CHANNEL_ID || "YOUR_CHANNEL_ID_HERE",
+  ROLE_ID: "1472754845672018012",
   MIN_DISCOUNT: 90,
   CHECK_INTERVAL: "0 */12 * * *",
   MAX_GAMES_PER_CHECK: 30,
@@ -76,24 +77,7 @@ async function getAppDetails(appId) {
     const res = await fetch(url);
     const data = await res.json();
     if (!data[appId]?.success) return null;
-    
-    const details = data[appId].data;
-    
-    // Si no tiene fecha, intentamos obtenerla del storefront
-    if (!details.price_overview?.discount_end_date) {
-      try {
-        const storeUrl = `https://store.steampowered.com/storefront/apphoverpublic/${appId}?l=english`;
-        const storeRes = await fetch(storeUrl);
-        const storeData = await storeRes.json();
-        if (storeData?.discount_end_date && details.price_overview) {
-          details.price_overview.discount_end_date = storeData.discount_end_date;
-        }
-      } catch {
-        // Si falla ignoramos, la fecha quedara como No especificada
-      }
-    }
-    
-    return details;
+    return data[appId].data;
   } catch {
     return null;
   }
@@ -109,8 +93,7 @@ async function getDiscountEndDate(appId) {
       }
     });
     const html = await res.text();
-    
-    // Buscar timestamp en el JS de la página (más confiable)
+
     const tsMatch = html.match(/discount_end_date["']?\s*:\s*(\d+)/) ||
                     html.match(/sale_end_time["']?\s*:\s*(\d+)/) ||
                     html.match(/free_weekend_expires["']?\s*:\s*(\d+)/);
@@ -120,12 +103,11 @@ async function getDiscountEndDate(appId) {
       });
     }
 
-    // Buscar texto visible en el HTML
     const match = html.match(/Offer ends ([^<"]+)/i) ||
                   html.match(/sale ends ([^<"]+)/i) ||
                   html.match(/free to keep when you get it before ([^<"]+)/i);
     if (match) return match[1].replace(/@.*$/i, "").replace(/\.\s*Some limitations apply\.?/i, "").trim();
-    
+
     return "No especificada";
   } catch {
     return "No especificada";
@@ -179,7 +161,9 @@ async function fetchSteamDeals() {
     if (discount < CONFIG.MIN_DISCOUNT) continue;
 
     const endDate = priceInfo.discount_end_date
-      ? new Date(priceInfo.discount_end_date * 1000).toLocaleDateString("es-CR", {day: "2-digit", month: "long", year: "numeric"})
+      ? new Date(priceInfo.discount_end_date * 1000).toLocaleDateString("es-CR", {
+          day: "2-digit", month: "long", year: "numeric",
+        })
       : await getDiscountEndDate(appId);
 
     deals.push({
@@ -202,24 +186,104 @@ async function fetchSteamDeals() {
   return deals.slice(0, CONFIG.MAX_GAMES_PER_CHECK);
 }
 
+// ─── EPIC GAMES API ────────────────────────────────────────────────────────
+
+async function fetchEpicDeals() {
+  const deals = [];
+
+  try {
+    const url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=en-US&country=US&allowCountries=US";
+    const res = await fetch(url, { headers: { "Accept-Language": "en-US" } });
+    const data = await res.json();
+
+    const elements = data?.data?.Catalog?.searchStore?.elements || [];
+
+    for (const game of elements) {
+      const promotions = game.promotions?.promotionalOffers?.[0]?.promotionalOffers || [];
+      const upcomingPromos = game.promotions?.upcomingPromotionalOffers?.[0]?.promotionalOffers || [];
+
+      // Solo juegos con oferta activa ahora
+      const activePromo = promotions[0];
+      if (!activePromo) continue;
+
+      const discount = activePromo.discountSetting?.discountPercentage ?? 0;
+      // Epic usa 0 para indicar 100% de descuento (gratis)
+      const isFree = discount === 0;
+      if (!isFree && discount < CONFIG.MIN_DISCOUNT) continue;
+
+      const appId = `epic_${game.id}`;
+      if (wasRecentlyAnnounced(appId)) continue;
+
+      const originalPrice = (game.price?.totalPrice?.originalPrice ?? 0) / 100;
+      const finalPrice = (game.price?.totalPrice?.discountPrice ?? 0) / 100;
+      const discountPercent = originalPrice > 0
+        ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100)
+        : 100;
+
+      const endDate = activePromo.endDate
+        ? new Date(activePromo.endDate).toLocaleDateString("es-CR", {
+            day: "2-digit", month: "long", year: "numeric"
+          })
+        : "No especificada";
+
+      const thumbnail =
+        game.keyImages?.find((i) => i.type === "OfferImageWide")?.url ||
+        game.keyImages?.find((i) => i.type === "Thumbnail")?.url ||
+        game.keyImages?.[0]?.url || "";
+
+      const genres = game.categories?.map((c) => c.path.split("/")?.[1]).filter(Boolean).join(", ") || "N/A";
+
+      const storeUrl = game.productSlug
+        ? `https://store.epicgames.com/p/${game.productSlug}`
+        : "https://store.epicgames.com/free-games";
+
+      deals.push({
+        appId,
+        name: game.title,
+        originalPrice: originalPrice.toFixed(2),
+        finalPrice: finalPrice.toFixed(2),
+        discount: discountPercent,
+        genres,
+        platform: "Epic Games",
+        thumbnail,
+        storeUrl,
+        endDate,
+        shortDesc: (game.description || game.title).slice(0, 150) + "...",
+      });
+    }
+  } catch (err) {
+    console.error("Error obteniendo ofertas de Epic:", err.message);
+  }
+
+  return deals;
+}
+
 // ─── DISCORD EMBED ─────────────────────────────────────────────────────────
 
 function buildEmbed(game) {
   const isFree = parseFloat(game.finalPrice) === 0 || game.discount === 100;
-  const color = isFree ? 0x57f287 : 0xffa500;
+  const isEpic = game.platform === "Epic Games";
+
+  // Verde = gratis, Naranja = descuento, Morado = Epic
+  const color = isFree
+    ? (isEpic ? 0x2f2f2f : 0x57f287)
+    : 0xffa500;
+
+  const platformIcon = isEpic ? "🟣" : "🎮";
+  const storeLabel = isEpic ? "Epic Games Store" : "Steam Deals Bot";
 
   return new EmbedBuilder()
     .setColor(color)
     .setTitle(
       isFree
-        ? `🎮 ¡Juego GRATIS en Steam! → ${game.name}`
+        ? `${platformIcon} ¡Juego GRATIS en ${game.platform}! → ${game.name}`
         : `🔥 ${game.discount}% de descuento → ${game.name}`
     )
     .setURL(game.storeUrl)
     .setThumbnail(game.thumbnail)
     .setDescription(game.shortDesc)
     .addFields(
-      { name: "💰 Precio original", value: `$${game.originalPrice} USD`, inline: true },
+      { name: "💰 Precio original", value: originalPrice(game), inline: true },
       {
         name: "🏷️ Precio actual",
         value: isFree ? "**GRATIS**" : `~~$${game.originalPrice}~~ → $${game.finalPrice} USD`,
@@ -230,14 +294,19 @@ function buildEmbed(game) {
       { name: "🎭 Géneros", value: game.genres, inline: true },
       { name: "⏰ Oferta válida hasta", value: game.endDate, inline: true }
     )
-    .setFooter({ text: "Steam Deals Bot • Reclamalo antes de que expire" })
+    .setFooter({ text: `${storeLabel} • Reclamalo antes de que expire` })
     .setTimestamp();
+}
+
+function originalPrice(game) {
+  if (parseFloat(game.originalPrice) === 0) return "F2P";
+  return `$${game.originalPrice} USD`;
 }
 
 // ─── LÓGICA PRINCIPAL ──────────────────────────────────────────────────────
 
 async function checkAndAnnounce() {
-  console.log(`[${new Date().toISOString()}] Revisando ofertas en Steam...`);
+  console.log(`[${new Date().toISOString()}] Revisando ofertas en Steam y Epic...`);
 
   const channel = await client.channels.fetch(CONFIG.CHANNEL_ID).catch(() => null);
   if (!channel) {
@@ -245,25 +314,38 @@ async function checkAndAnnounce() {
     return;
   }
 
-  let deals;
+  let steamDeals = [];
+  let epicDeals = [];
+
   try {
-    deals = await fetchSteamDeals();
+    steamDeals = await fetchSteamDeals();
   } catch (err) {
-    console.error("Error al obtener ofertas de Steam:", err.message);
+    console.error("Error Steam:", err.message);
+  }
+
+  try {
+    epicDeals = await fetchEpicDeals();
+  } catch (err) {
+    console.error("Error Epic:", err.message);
+  }
+
+  const allDeals = [...steamDeals, ...epicDeals];
+
+  if (allDeals.length === 0) {
+    console.log(`Sin nuevas ofertas en este ciclo.`);
     return;
   }
 
-  if (deals.length === 0) {
-    console.log(`Sin nuevas ofertas >= ${CONFIG.MIN_DISCOUNT}% en este ciclo.`);
-    return;
-  }
+  // Mencionar el rol una sola vez antes de los embeds
+  await channel.send(`<@&${CONFIG.ROLE_ID}> 🎮 ¡Nuevas ofertas detectadas!`);
+  await sleep(500);
 
-  for (const game of deals) {
+  for (const game of allDeals) {
     try {
       const embed = buildEmbed(game);
       await channel.send({ embeds: [embed] });
       markAnnounced(game.appId, game.name);
-      console.log(`✓ Anunciado: ${game.name} (${game.discount}% off)`);
+      console.log(`✓ Anunciado [${game.platform}]: ${game.name} (${game.discount}% off)`);
       await sleep(1000);
     } catch (err) {
       console.error(`Error enviando embed para ${game.name}:`, err.message);
@@ -284,25 +366,6 @@ client.once("clientReady", () => {
   console.log(`📡 Revisando cada 12 horas (MIN_DISCOUNT = ${CONFIG.MIN_DISCOUNT}%)`);
   checkAndAnnounce();
   cron.schedule(CONFIG.CHECK_INTERVAL, checkAndAnnounce);
-});
-
-console.log(`🔑 Token cargado: ${CONFIG.DISCORD_TOKEN ? "SÍ" : "NO"}`);
-console.log(`📡 Canal ID: ${CONFIG.CHANNEL_ID}`);
-
-client.on("error", (err) => console.error("❌ Error del cliente:", err));
-client.on("warn", (msg) => console.warn("⚠️ Advertencia:", msg));
-
-console.log("🔄 Intentando conectar a Discord...");
-// Test de conectividad básica
-fetch("https://discord.com/api/v10/gateway")
-  .then(r => r.json())
-  .then(d => console.log("🌐 Conectividad a Discord OK:", d.url))
-  .catch(e => console.error("🌐 Sin acceso a Discord:", e.message));
-client.login(CONFIG.DISCORD_TOKEN).then(() => {
-  console.log("✅ Login exitoso");
-}).catch((err) => {
-  console.error("❌ Error en login:", err.message);
-  process.exit(1);
 });
 
 client.login(CONFIG.DISCORD_TOKEN);
