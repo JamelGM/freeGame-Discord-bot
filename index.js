@@ -11,9 +11,9 @@ const path = require("path");
 const CONFIG = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN || "YOUR_BOT_TOKEN_HERE",
   CHANNEL_ID: process.env.CHANNEL_ID || "YOUR_CHANNEL_ID_HERE",
-  ROLE_ID: "1472754845672018012",
+  ROLE_ID: process.env.ROLE_ID ||"YOUR_ROLE_ID_HERE",
   MIN_DISCOUNT: 90,
-  CHECK_INTERVAL: "0 */12 * * *",
+  CHECK_INTERVAL: "0 */24 * * *",
   MAX_GAMES_PER_CHECK: 30,
   REANNOUNCE_DAYS: 30,
 };
@@ -363,7 +363,7 @@ function sleep(ms) {
 
 client.once("clientReady", () => {
   console.log(`✅ Bot conectado como ${client.user.tag}`);
-  console.log(`📡 Revisando cada 12 horas (MIN_DISCOUNT = ${CONFIG.MIN_DISCOUNT}%)`);
+  console.log(`📡 Revisando cada 24 horas (MIN_DISCOUNT = ${CONFIG.MIN_DISCOUNT}%)`);
   checkAndAnnounce();
   cron.schedule(CONFIG.CHECK_INTERVAL, checkAndAnnounce);
 });
