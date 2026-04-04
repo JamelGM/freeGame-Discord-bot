@@ -114,6 +114,26 @@ async function getDiscountEndDate(appId) {
   }
 }
 
+async function getGenresFromSteam(gameName) {
+  try {
+    const searchUrl = `https://store.steampowered.com/search/results?` +
+      new URLSearchParams({ term: gameName, json: 1, count: 1 });
+    const res = await fetch(searchUrl, { headers: { "Accept-Language": "en-US" } });
+    const data = await res.json();
+
+    const item = data?.items?.[0];
+    if (!item) return "N/A";
+
+    const appId = item.logo?.match(/\/(\d+)\//)?.[1];
+    if (!appId) return "N/A";
+
+    const details = await getAppDetails(appId);
+    return details?.genres?.map((g) => g.description).join(", ") || "N/A";
+  } catch {
+    return "N/A";
+  }
+}
+
 async function fetchSteamDeals() {
   const deals = [];
 
@@ -235,10 +255,16 @@ async function fetchEpicDeals() {
         game.keyImages?.find((i) => i.type === "Thumbnail")?.url ||
         game.keyImages?.[0]?.url || "";
 
-      const genres = game.tags?.map((t) => t.name).filter(Boolean).slice(0, 3).join(", ") || "N/A";
+      const genres = await getGenresFromSteam(game.title);
 
       const storeUrl = game.productSlug
         ? `https://store.epicgames.com/p/${game.productSlug}`
+        : game.urlSlug
+
+        ? `https://store.epicgames.com/p/${game.urlSlug}`
+        : game.catalogNs?.mappings?.[0]?.pageSlug
+
+        ? `https://store.epicgames.com/p/${game.catalogNs.mappings[0].pageSlug}`
         : "https://store.epicgames.com/free-games";
 
       deals.push({
