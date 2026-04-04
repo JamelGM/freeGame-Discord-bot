@@ -133,7 +133,7 @@ async function fetchSteamDeals() {
   // Verificamos cada juego con detalles reales
   const checks = [...appIds].slice(0, 60); // limitamos peticiones
   for (const appId of checks) {
-    if (announced.has(appId)) continue;
+    if (wasRecentlyAnnounced(appId)) continue;
 
     const details = await getAppDetails(appId);
     if (!details) continue;
@@ -278,7 +278,7 @@ function sleep(ms) {
 
 // ─── INICIO ────────────────────────────────────────────────────────────────
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`✅ Bot conectado como ${client.user.tag}`);
   console.log(`📡 Revisando cada hora (MIN_DISCOUNT = ${CONFIG.MIN_DISCOUNT}%)`);
 
