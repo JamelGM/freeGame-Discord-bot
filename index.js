@@ -363,7 +363,7 @@ async function checkAndAnnounce() {
   }
 
   // Mencionar el rol una sola vez antes de los embeds
-  await channel.send(`<# @&${CONFIG.ROLE_ID}> 🎮 ¡Nuevas ofertas detectadas!`);
+  await channel.send(`# <@&${CONFIG.ROLE_ID}> 🎮 ¡Nuevas ofertas detectadas!`);
   await sleep(500);
 
   for (const game of allDeals) {
