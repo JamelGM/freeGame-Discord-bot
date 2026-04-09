@@ -95,7 +95,7 @@ Para que corra constantemente podés usar:
 
 ## ⚠️ Notas
 
-- La API pública de Steam no requiere API key
+- La API pública de Steam y Epic no requiere API key
 - Steam a veces limita requests, el bot incluye pausas para evitar bloqueos
 - Los juegos ya anunciados se guardan en memoria (se reinician al reiniciar el bot)
 - Para persistencia entre reinicios, podrías guardar `announced` en un archivo JSON

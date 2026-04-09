@@ -1,7 +1,7 @@
 {
   "name": "steam-discord-deals-bot",
   "version": "1.0.0",
-  "description": "Bot de Discord que anuncia juegos gratis o con 90%+ de descuento en Steam",
+  "description": "Bot de Discord que anuncia juegos gratis o con 90%+ de descuento en Steam y Epic Games Store.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
