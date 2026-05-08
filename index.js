@@ -1,7 +1,7 @@
 // Free Games Bot para Discord — Steam + Epic Games
 // Requirements: npm install discord.js node-cron
 // Node.js 18+ recommended
-
+require("dotenv").config();
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const cron = require("node-cron");
 const fs = require("fs");
@@ -13,7 +13,7 @@ const CONFIG = {
   CHANNEL_ID: process.env.CHANNEL_ID || "YOUR_CHANNEL_ID_HERE",
   ROLE_ID: process.env.ROLE_ID ||"YOUR_ROLE_ID_HERE",
   MIN_DISCOUNT: 90,
-  CHECK_INTERVAL: "0 */24 * * *",
+  CHECK_INTERVAL: "0 12 * * *",
   MAX_GAMES_PER_CHECK: 50,
   REANNOUNCE_DAYS: 15,
 };
